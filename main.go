@@ -47,7 +47,12 @@ func main() {
 	input := openFile(logInput)
 	defer input.Close()
 
-	output := openFile(logOutput)
+	var output *os.File
+	if logOutput == "/dev/stdout" {
+		output = os.Stdout
+	} else {
+		output = openFile(logOutput)
+	}
 	defer output.Close()
 
 	reader := bufio.NewReader(input)
