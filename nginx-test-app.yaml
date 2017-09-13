@@ -1,0 +1,28 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-test-app
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx-test-app
+    spec:
+      containers:
+      - name: nginx-test-app
+        image: ahamilton55/dsc:nginx-test-app
+        ports:
+          - containerPort: 8080
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log/nginx
+      - name: nginx-stats
+        image: ahamilton55/dsc:latest
+        args: [/nginx-stats, -output, /dev/stdout]
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log/nginx
+      volumes:
+      - name: varlog
+        emptyDir: {}
