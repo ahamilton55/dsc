@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -21,10 +20,6 @@ const (
 )
 
 var (
-	// reqStatusRegexp is used to pull out the request string and status code from each log line
-	// Though regexp aren't always the most performant, it's much easier here to grab the small amount of info we want than with splitting strings
-	reqStatusRegexp = `"([A-Z]+ .*)" ([2-5][0-9]+)`
-
 	logInput  string
 	logOutput string
 	seconds   int64
@@ -39,7 +34,6 @@ func init() {
 }
 
 func main() {
-	re := regexp.MustCompile(reqStatusRegexp)
 	flag.Parse()
 
 	timeout := defaultTimeout * time.Second
@@ -58,7 +52,7 @@ func main() {
 	reader := bufio.NewReader(input)
 
 	for {
-		statuses, badRoutes := stats(re, reader)
+		statuses, badRoutes := stats(reader)
 
 		// Specify statuses here since if we don't read any new long lines we, the map will not have any fields
 		for _, level := range []string{"50x", "40x", "30x", "20x"} {
@@ -91,7 +85,7 @@ func openFile(filename string) *os.File {
 }
 
 // stats will read the file and pick out information using the provided regular expression
-func stats(re *regexp.Regexp, reader *bufio.Reader) (map[string]int, map[string]int) {
+func stats(reader *bufio.Reader) (map[string]int, map[string]int) {
 	var readErr error
 	var byteLine []byte
 	s := make(map[string]int)
@@ -101,9 +95,9 @@ func stats(re *regexp.Regexp, reader *bufio.Reader) (map[string]int, map[string]
 
 	// Read the file until we reach the end
 	for readErr != io.EOF {
-		line := re.FindStringSubmatch(string(byteLine))
+		line := parseLine(string(byteLine))
 
-		if len(line) >= 2 {
+		if len(line) == 2 {
 			code, route, err := getStatus(line)
 			if err != nil {
 				continue
@@ -128,7 +122,7 @@ func getStatus(line []string) (string, string, error) {
 	var r string
 
 	routeStatus := strings.Split(line[0], " ")
-	status, err := strconv.Atoi(line[2])
+	status, err := strconv.Atoi(line[1])
 	if err != nil {
 		return s, r, err
 	}
@@ -151,4 +145,14 @@ func getStatus(line []string) (string, string, error) {
 	}
 
 	return s, r, nil
+}
+
+// parseLine will pull out the request string and status code
+func parseLine(line string) []string {
+	first := strings.Split(line, `"`)
+	request := first[1]
+	second := strings.Split(strings.Trim(first[2], " "), " ")
+	code := second[0]
+
+	return []string{request, code}
 }
